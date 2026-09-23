@@ -49,7 +49,10 @@ fun LoginScreen(
         ) {
             Text("PSRM Forms", style = MaterialTheme.typography.headlineMedium)
             Text(
-                "Sign in with a WordPress Application Password — not your account password.",
+                "Sign in with a WordPress Application Password — not your account password. " +
+                    "Requires HTTPS and WordPress 5.6+. On a Multisite network, use the specific " +
+                    "site's URL (not the network's main domain) — Application Passwords must be " +
+                    "enabled for that site, which a network admin can otherwise turn off.",
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
             )

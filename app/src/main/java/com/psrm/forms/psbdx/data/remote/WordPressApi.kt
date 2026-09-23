@@ -6,6 +6,7 @@ import com.psrm.forms.psbdx.data.remote.dto.NewReplyRequest
 import com.psrm.forms.psbdx.data.remote.dto.ReplyDto
 import com.psrm.forms.psbdx.data.remote.dto.ResponseDto
 import com.psrm.forms.psbdx.data.remote.dto.WpMeDto
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -26,6 +27,27 @@ import retrofit2.http.Path
  * is real WP core and works today.
  */
 interface WordPressApi {
+
+    /**
+     * The WP REST API root index — unauthenticated, always exists on any
+     * WordPress 4.7+ site. Used purely as a pre-flight check before login:
+     * (a) confirms `/wp-json/` is reachable at all (catches a wrong URL, a
+     * host blocking REST, or a firewall/security plugin in front of it),
+     * and (b) its `authentication` object lists an `application-passwords`
+     * key only when that WP core feature is actually enabled — which is
+     * NOT guaranteed:
+     *   - WP disables Application Passwords by default on non-HTTPS sites
+     *     (unless a filter overrides `wp_is_application_passwords_available`).
+     *   - On WordPress **Multisite**, Application Passwords are otherwise
+     *     supported per-site like any single install, but a network admin
+     *     can disable the feature network-wide with that same filter, and
+     *     some multisite security/hardening plugins do so by default.
+     * Returned as raw ResponseBody rather than a typed DTO — the index
+     * response varies a lot between WP versions/plugins and all we need is
+     * a substring check, not a full model.
+     */
+    @GET("wp-json/")
+    suspend fun getSiteIndexRaw(): Response<ResponseBody>
 
     @GET("wp-json/wp/v2/users/me?context=edit")
     suspend fun getCurrentUser(): Response<WpMeDto>

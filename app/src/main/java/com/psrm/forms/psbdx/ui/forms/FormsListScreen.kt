@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -54,28 +55,48 @@ fun FormsListScreen(
             }
         }
     ) { padding ->
-        if (state.forms.isEmpty() && !state.isRefreshing) {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text("No forms yet.", style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    "Tap + to create one, or pull to refresh if this site already has forms.",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        } else {
-            LazyColumn(modifier = Modifier.fillMaxSize().padding(padding)) {
-                items(state.forms, key = { it.id }) { form ->
-                    FormRow(
-                        form = form,
-                        onOpenBuilder = { onOpenBuilder(form.id) },
-                        onOpenResponses = { onOpenResponses(form.id) },
-                        onCopyShortcode = { clipboard.copyText(form.shortcode) },
-                        onCopyShareLink = { clipboard.copyText(form.shareUrl) },
-                        onDelete = { viewModel.deleteForm(form.id) }
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            // This was previously captured in state but never rendered —
+            // meaning a real failure (most commonly: the site doesn't have
+            // the psbdx-srm/v1 REST routes yet, see FormsRepository) looked
+            // identical to "you just have no forms." Always show it when
+            // present, on top of whatever else is on screen.
+            if (state.error != null) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    modifier = Modifier.fillMaxWidth().padding(12.dp)
+                ) {
+                    Text(
+                        state.error!!,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(12.dp)
                     )
+                }
+            }
+
+            if (state.forms.isEmpty() && !state.isRefreshing && state.error == null) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(24.dp),
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text("No forms yet.", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Tap + to create one, or pull to refresh if this site already has forms.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            } else {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(state.forms, key = { it.id }) { form ->
+                        FormRow(
+                            form = form,
+                            onOpenBuilder = { onOpenBuilder(form.id) },
+                            onOpenResponses = { onOpenResponses(form.id) },
+                            onCopyShortcode = { clipboard.copyText(form.shortcode) },
+                            onCopyShareLink = { clipboard.copyText(form.shareUrl) },
+                            onDelete = { viewModel.deleteForm(form.id) }
+                        )
+                    }
                 }
             }
         }

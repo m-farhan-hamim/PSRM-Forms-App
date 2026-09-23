@@ -18,10 +18,15 @@ class AuthRepository(private val credentialStore: CredentialStore) {
     val session: StateFlow<WpSession?> = _session.asStateFlow()
 
     /**
-     * Verifies the given site URL + username + Application Password by
-     * calling `wp/v2/users/me` — the same request the header display and
-     * every later screen depends on, so a failure here means the app can't
-     * do anything useful yet and the user needs to fix the credential.
+     * Verifies the given site URL + username + Application Password.
+     *
+     * Runs a pre-flight check against the unauthenticated REST index first
+     * (see [com.psrm.forms.psbdx.data.remote.WordPressApi.getSiteIndexRaw])
+     * so a failure can say *why* — unreachable REST API, HTTP vs HTTPS,
+     * Application Passwords disabled site-wide or network-wide on
+     * Multisite — rather than the generic 401 that's all `wp/v2/users/me`
+     * alone can tell you, since WP returns the same rejected-auth response
+     * whether the password is wrong or the whole feature is off.
      */
     suspend fun login(siteUrl: String, username: String, applicationPassword: String): LoginResult {
         credentialStore.siteUrl = siteUrl
@@ -30,13 +35,39 @@ class AuthRepository(private val credentialStore: CredentialStore) {
 
         return try {
             val api = WordPressApiClient.create(credentialStore)
+
+            val preflight = runCatching { api.getSiteIndexRaw() }
+            val preflightBody = preflight.getOrNull()?.takeIf { it.isSuccessful }?.body()?.string()
+
+            if (preflight.isFailure || preflightBody == null) {
+                credentialStore.clear()
+                return LoginResult.Failure(
+                    "Couldn't reach the WordPress REST API at that URL. Check it's correct and reachable " +
+                        "(on Multisite, use the specific site's URL, not the network's main domain), and " +
+                        "that nothing — a firewall, security plugin, or maintenance mode — is blocking /wp-json/."
+                )
+            }
+
+            if (!preflightBody.contains("application-passwords")) {
+                credentialStore.clear()
+                return LoginResult.Failure(
+                    "This site doesn't have Application Passwords enabled. WordPress disables them by " +
+                        "default over plain HTTP — the site needs HTTPS, or a filter override on " +
+                        "`wp_is_application_passwords_available`. On Multisite, they can also be turned " +
+                        "off network-wide by the network admin or a security plugin — check Network " +
+                        "Settings and any hardening plugin's auth settings."
+                )
+            }
+
             val response = api.getCurrentUser()
 
             if (!response.isSuccessful || response.body() == null) {
                 credentialStore.clear()
                 LoginResult.Failure(
                     when (response.code()) {
-                        401, 403 -> "That username/Application Password combination was rejected by the site."
+                        401, 403 -> "That username/Application Password combination was rejected by the site. " +
+                            "Double-check you generated it under Users → Profile → Application Passwords for " +
+                            "this exact user, and pasted the full value (spaces included)."
                         404 -> "The WordPress REST API wasn't found at that site URL — check it's reachable and not blocked."
                         else -> "Login failed (HTTP ${response.code()})."
                     }

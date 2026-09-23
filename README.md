@@ -20,6 +20,43 @@ build (`FAIL_ON_PROJECT_REPOS`) if any module adds an extra repository —
 that's deliberate, to keep a stray private/proprietary Maven repo from
 sneaking into an F-Droid build.
 
+## Application Passwords — requirements & Multisite notes
+
+- Requires WordPress **5.6+** and **HTTPS**. WP disables Application
+  Passwords by default over plain HTTP (there's a
+  `wp_is_application_passwords_available` filter a site could use to
+  override this, but assume it's off unless you know otherwise).
+- The Application Password is generated per-user under **Users → Profile →
+  Application Passwords** — it is a distinct value from that user's normal
+  login password, formatted as space-separated groups
+  (`xxxx xxxx xxxx xxxx xxxx xxxx`). Paste it exactly as generated.
+- **WordPress Multisite**: Application Passwords work per-site exactly like
+  a single install, but two things commonly trip this up —
+  1. Enter the **specific site's URL** you want to manage forms on (e.g.
+     `https://site2.example.com` or `https://example.com/site2`), not the
+     network's main domain — each site has its own `/wp-json/`.
+  2. A network admin can disable Application Passwords **network-wide**
+     with the same `wp_is_application_passwords_available` filter, and
+     some multisite hardening/security plugins do this by default. If
+     login fails with "Application Passwords aren't enabled," check
+     Network Settings and any such plugin before assuming the credential
+     is wrong.
+- The app runs a pre-flight check against the unauthenticated `/wp-json/`
+  index before attempting login (`AuthRepository.login()`), specifically
+  so these cases produce a distinct, actionable error instead of the same
+  generic 401 a wrong password would give.
+
+## ⚠️ Logged in but the Forms list is empty — read this first
+
+This is expected, not a bug in Application Password handling, if the
+plugin's REST routes below don't exist on your site yet. Login succeeds
+because `wp/v2/users/me` is real WordPress core — but the forms list
+calls `psbdx-srm/v1/forms`, which 404s until that namespace is added to
+the plugin. The app now surfaces this distinctly (a red banner on the
+Forms screen naming the missing routes) rather than just showing "No
+forms yet," so if you see that banner, the fix is server-side, not a
+credential problem.
+
 ## ⚠️ Server-side dependency — read before building against a real site
 
 This app is written against a `psbdx-srm/v1` REST namespace

@@ -27,7 +27,17 @@ class FormsRepository(
 
     suspend fun refresh(): Result<Unit> = runCatching {
         val response = api.listForms()
-        if (!response.isSuccessful) error("Failed to load forms (HTTP ${response.code()})")
+        if (!response.isSuccessful) {
+            error(
+                if (response.code() == 404) {
+                    "This site's WordPress plugin doesn't expose the psbdx-srm/v1 REST routes yet " +
+                        "(the app can log in fine — wp/v2/users/me works — but form/response data needs a " +
+                        "small REST controller added to the plugin; see this app's README for the exact routes)."
+                } else {
+                    "Failed to load forms (HTTP ${response.code()})"
+                }
+            )
+        }
         val forms = response.body().orEmpty()
         formDao.upsertAll(forms.map { dto ->
             FormEntity(
