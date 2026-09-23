@@ -16,7 +16,7 @@ import retrofit2.http.PUT
 import retrofit2.http.Path
 
 /**
- * NOTE ON SCOPE: the `psbdx-srm/v1/*` routes below are NOT part of the
+ * NOTE ON SCOPE: the `psbdx-srm/v1` routes below are NOT part of the
  * current plugin (which drives its admin UI over admin-ajax.php, not a
  * REST namespace). They're the contract this app is written against —
  * a small `WP_REST_Controller` addition to the plugin (forms CRUD,
