@@ -1,0 +1,12 @@
+<resources>
+    <!-- Plain platform theme, not a Material Components one — deliberately
+         no com.google.android.material dependency for this Compose-only
+         app. This theme is only ever seen for the instant between process
+         start and Compose taking over (PsrmFormsTheme in Theme.kt); it
+         doesn't need to match the in-app design system beyond not flashing
+         an ugly default window. -->
+    <style name="Theme.PsrmForms" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>
