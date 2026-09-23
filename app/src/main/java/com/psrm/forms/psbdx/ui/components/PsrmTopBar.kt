@@ -2,8 +2,8 @@ package com.psrm.forms.psbdx.ui.components
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -47,14 +47,14 @@ fun PsrmTopBar(
         navigationIcon = {
             if (onBack != null) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                 }
             }
         },
         actions = {
             if (onLogout != null) {
                 IconButton(onClick = onLogout) {
-                    Icon(Icons.Default.Logout, contentDescription = "Log out")
+                    Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Log out")
                 }
             }
         },

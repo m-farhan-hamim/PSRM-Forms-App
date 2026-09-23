@@ -13,7 +13,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -103,7 +103,7 @@ private fun FormRow(
                     Icon(Icons.Default.Edit, contentDescription = "Edit fields")
                 }
                 IconButton(onClick = onOpenResponses) {
-                    Icon(Icons.Default.List, contentDescription = "View responses")
+                    Icon(Icons.AutoMirrored.Filled.List, contentDescription = "View responses")
                 }
                 IconButton(onClick = onCopyShortcode) {
                     Icon(Icons.Default.ContentCopy, contentDescription = "Copy shortcode")
