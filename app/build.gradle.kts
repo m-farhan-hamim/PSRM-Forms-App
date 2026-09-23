@@ -81,6 +81,11 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
+    // material-icons-core (bundled transitively via material3) only has a
+    // small curated subset of Icons.Default.* — ContentCopy, Logout, Share,
+    // etc. used across the list/builder/responses screens live in the
+    // extended pack instead. Version comes from the Compose BOM above.
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.activity:activity-compose:1.9.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")

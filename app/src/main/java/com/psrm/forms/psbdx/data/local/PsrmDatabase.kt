@@ -80,9 +80,17 @@ interface ResponseDao {
 class Converters {
     private val moshi = Moshi.Builder().build()
 
+    // Moshi's `inline fun <reified T> Moshi.adapter()` extension is built on
+    // kotlin.reflect's typeOf(), which the Kotlin stdlib still marks
+    // @ExperimentalStdlibApi — stable in practice, just not yet a finalized
+    // API. Opting in at the class level rather than suppressing the warning
+    // some other way, since we do want the compiler to keep flagging any
+    // *other* experimental stdlib API we might use later.
+    @OptIn(ExperimentalStdlibApi::class)
     @TypeConverter
     fun listToJson(value: List<*>?): String = moshi.adapter<List<*>>().toJson(value ?: emptyList<Any>())
 
+    @OptIn(ExperimentalStdlibApi::class)
     @TypeConverter
     fun mapToJson(value: Map<String, String>?): String =
         moshi.adapter<Map<String, String>>().toJson(value ?: emptyMap())
