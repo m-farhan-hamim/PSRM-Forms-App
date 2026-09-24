@@ -48,46 +48,72 @@ sneaking into an F-Droid build.
 
 ## ⚠️ Logged in but the Forms list is empty — read this first
 
-This is expected, not a bug in Application Password handling, if the
-plugin's REST routes below don't exist on your site yet. Login succeeds
-because `wp/v2/users/me` is real WordPress core — but the forms list
-calls `psbdx-srm/v1/forms`, which 404s until that namespace is added to
-the plugin. The app now surfaces this distinctly (a red banner on the
-Forms screen naming the missing routes) rather than just showing "No
-forms yet," so if you see that banner, the fix is server-side, not a
-credential problem.
+If you're on plugin version 2.0.0 or later (see the section right below —
+the REST controller ships from that version on), this is either a genuine
+"no forms on this site yet" or a real error, and the app will now tell
+the difference: a failed request shows a red banner on the Forms screen
+naming the actual problem (e.g. a permission error, or the routes still
+being unreachable), rather than the old behavior of silently looking
+identical to an empty list. If you're on an **older plugin version**
+without the REST controller, the banner will name the missing
+`psbdx-srm/v1` routes specifically — update the plugin to fix that, it's
+not an Application Password problem.
 
-## ⚠️ Server-side dependency — read before building against a real site
+## ✅ Server-side REST controller — now implemented
 
-This app is written against a `psbdx-srm/v1` REST namespace
-(`WordPressApi.kt`) for forms/responses/replies. **That namespace does not
-exist in the plugin yet** — the plugin currently drives its own admin UI
-over `admin-ajax.php`, not a REST controller. Only `wp/v2/users/me` (used
-for login + the header) is real, working WordPress core today.
-
-To make this app functional against a live site, the plugin needs a small
-`WP_REST_Controller`-based addition exposing:
+`psbdx-srm/v1` (forms/responses/replies) is now real, as of the plugin's
+`includes/class-psbdx-srm-rest-controller.php` — the section below is kept
+for reference (route table, and the previous gap this closed) rather than
+because it's still outstanding.
 
 | Method | Route | Purpose |
 |---|---|---|
 | GET | `/psbdx-srm/v1/forms` | list forms |
-| GET/POST | `/psbdx-srm/v1/forms/{id}` | read / create |
+| POST | `/psbdx-srm/v1/forms` | create a blank draft form |
+| GET | `/psbdx-srm/v1/forms/{id}` | read one form |
 | PUT | `/psbdx-srm/v1/forms/{id}/fields` | save field schema (used by field duplicate) |
-| DELETE | `/psbdx-srm/v1/forms/{id}` | delete |
+| DELETE | `/psbdx-srm/v1/forms/{id}` | trash a form |
 | GET | `/psbdx-srm/v1/forms/{id}/responses` | list responses |
-| GET | `/psbdx-srm/v1/responses/{id}` | response detail |
+| GET | `/psbdx-srm/v1/responses/{id}` | response detail + reply thread |
 | PATCH | `/psbdx-srm/v1/responses/{id}/status` | change status |
-| POST | `/psbdx-srm/v1/responses/{id}/replies` | send a reply (reuse the existing agent-reply/email pipeline) |
+| POST | `/psbdx-srm/v1/responses/{id}/replies` | send a reply (reuses the plugin's existing `PSBDX_SRM_Replies::add_reply()` + its automatic email notification) |
 
-Each route should gate on the same WP capabilities the admin screens already
-check (`manage_options` / `edit_others_posts` for form CRUD,
-`moderate_comments` for responses), consistent with `AuthRepository`'s
-capability checks.
+Permission model actually implemented (not `manage_options` as an earlier
+draft of this README assumed): forms use WordPress's real per-post
+capabilities — `edit_posts` to list, `edit_post`/`delete_post` on the
+specific form to read/edit/delete it, and the post type's own
+`create_posts` cap to create one — same floor as the classic admin menu
+(Contributor-level `edit_posts`, not admin-only). Responses use
+`PSBDX_SRM_Replies::can_access_report()` to view (mirrors the same rule the
+shortcode-rendered thread already uses) and `edit_post` on the report to
+change status or reply.
+
+**Known limitations of this first server-side pass**, straight from the
+controller's own docblock:
+- Status-change/reply access is gated on `edit_post`, not the full Support
+  Agent claim/assignment workflow (`PSBDX_SRM_Agents`) — any admin/editor
+  can reply to any report, not just the one it's assigned to. A future pass
+  could layer that check on top for parity with the classic admin's
+  `handle_agent_reply()`.
+- `answers` on a response is reconstructed by parsing the plugin's own
+  HTML report summary (`post_content`) back into a label→value map — there
+  is no separately-stored structured answers array anywhere in the plugin
+  (the CSV exporter has this exact same limitation). Reliable for the
+  plugin's own known output format, but not a real structured data source.
+- `share_url` is always empty — the plugin has no page-level "this form
+  lives at this URL" concept (forms are shortcodes/popup triggers placed
+  anywhere), so there's nothing real to return. The Forms list hides the
+  copy-share-link button entirely when it's blank rather than copying
+  nothing.
+- The Android app's `notify_email` flag on a new reply has no effect yet:
+  the plugin always emails on reply (`psbdx_srm_reply_added` → `PSBDX_SRM_Emails::notify_reply()`),
+  with no per-reply opt-out to wire it to.
 
 ## What's implemented in this scaffold
 
 - **Auth** — `LoginScreen` → `AuthRepository.login()` verifies the
   Application Password via `wp/v2/users/me`, stores it encrypted
+
   (`CredentialStore`, Jetpack Security), and every request thereafter
   carries it via `WordPressAuthInterceptor` (HTTP Basic).
 - **Header** — `PsrmTopBar` shows `username · site-host` on every screen

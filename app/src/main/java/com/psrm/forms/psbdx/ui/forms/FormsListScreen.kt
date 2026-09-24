@@ -129,8 +129,14 @@ private fun FormRow(
                 IconButton(onClick = onCopyShortcode) {
                     Icon(Icons.Default.ContentCopy, contentDescription = "Copy shortcode")
                 }
-                IconButton(onClick = onCopyShareLink) {
-                    Icon(Icons.Default.Share, contentDescription = "Copy share link")
+                // The plugin has no page-level "share URL" concept for a
+                // form (it's a shortcode/popup trigger, not tied to one
+                // page) — share_url comes back blank until/unless that
+                // changes server-side, so don't offer to copy nothing.
+                if (form.shareUrl.isNotBlank()) {
+                    IconButton(onClick = onCopyShareLink) {
+                        Icon(Icons.Default.Share, contentDescription = "Copy share link")
+                    }
                 }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Default.Delete, contentDescription = "Delete form")
