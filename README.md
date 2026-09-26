@@ -88,26 +88,27 @@ specific form to read/edit/delete it, and the post type's own
 shortcode-rendered thread already uses) and `edit_post` on the report to
 change status or reply.
 
-**Known limitations of this first server-side pass**, straight from the
-controller's own docblock:
-- Status-change/reply access is gated on `edit_post`, not the full Support
-  Agent claim/assignment workflow (`PSBDX_SRM_Agents`) — any admin/editor
-  can reply to any report, not just the one it's assigned to. A future pass
-  could layer that check on top for parity with the classic admin's
-  `handle_agent_reply()`.
-- `answers` on a response is reconstructed by parsing the plugin's own
-  HTML report summary (`post_content`) back into a label→value map — there
-  is no separately-stored structured answers array anywhere in the plugin
-  (the CSV exporter has this exact same limitation). Reliable for the
-  plugin's own known output format, but not a real structured data source.
-- `share_url` is always empty — the plugin has no page-level "this form
-  lives at this URL" concept (forms are shortcodes/popup triggers placed
-  anywhere), so there's nothing real to return. The Forms list hides the
-  copy-share-link button entirely when it's blank rather than copying
-  nothing.
-- The Android app's `notify_email` flag on a new reply has no effect yet:
-  the plugin always emails on reply (`psbdx_srm_reply_added` → `PSBDX_SRM_Emails::notify_reply()`),
-  with no per-reply opt-out to wire it to.
+**Resolved in a same-day follow-up** (all four items below were originally
+listed here as known gaps — kept for history, since it explains the design):
+- Status-change/reply access now enforces the real Support Agent assignment
+  rule, not just `edit_post`: the caller must be a registered agent or admin
+  AND either the report's assigned agent or an admin — mirrors
+  `handle_agent_reply()`/`handle_agent_change_status()` exactly.
+  Claim/abandon/handover *action* endpoints (changing who's assigned) are
+  still not exposed via REST — that's a separate feature, not this gap.
+- `answers` now comes from a real structured `_psbdx_report_answers` meta
+  saved at submission time, for every report submitted from plugin 2.0.0
+  on. Reports submitted before that meta existed still fall back to
+  parsing the HTML summary, so older tickets don't just show empty.
+- `share_url` is real: the plugin has an existing site-wide "URL popup"
+  feature (append `?` + a form's bare numeric ID to any front-end URL to
+  open it as an overlay) — the REST API now returns that link whenever the
+  form is published AND has its per-form Popup Link option turned on,
+  empty otherwise (so a copied link never dead-ends). The Forms list still
+  hides the copy-share-link button when blank.
+- `notify_email` now genuinely suppresses the reply notification email
+  when set — `PSBDX_SRM_Replies::add_reply()` gained a real `$notify`
+  parameter wired through from the REST request.
 
 ## What's implemented in this scaffold
 

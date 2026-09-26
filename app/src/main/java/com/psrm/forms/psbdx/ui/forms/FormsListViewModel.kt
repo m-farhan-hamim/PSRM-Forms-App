@@ -18,7 +18,9 @@ data class FormsListUiState(
     val session: WpSession? = null,
     val forms: List<PsrmForm> = emptyList(),
     val isRefreshing: Boolean = false,
-    val error: String? = null
+    val isCreating: Boolean = false,
+    val error: String? = null,
+    val createdFormId: Long? = null
 )
 
 class FormsListViewModel(
@@ -55,5 +57,24 @@ class FormsListViewModel(
                 _uiState.value = _uiState.value.copy(error = result.exceptionOrNull()?.message)
             }
         }
+    }
+
+    /** The Forms list's + button. On success, sets [FormsListUiState.createdFormId]
+     *  as a one-shot navigation signal — the screen consumes it and calls
+     *  [onCreatedFormIdConsumed] to clear it. */
+    fun createForm(title: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isCreating = true, error = null)
+            val result = formsRepository.createForm(title)
+            _uiState.value = _uiState.value.copy(
+                isCreating = false,
+                error = result.exceptionOrNull()?.message,
+                createdFormId = result.getOrNull()?.id
+            )
+        }
+    }
+
+    fun onCreatedFormIdConsumed() {
+        _uiState.value = _uiState.value.copy(createdFormId = null)
     }
 }

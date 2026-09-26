@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +42,32 @@ fun ResponsesScreen(
             if (state.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.padding(16.dp))
             }
+
+            // Previously captured in state but never rendered — a failed
+            // load (wrong permission, a network error, a plugin version
+            // without the REST routes) looked identical to "this form
+            // genuinely has zero responses."
+            if (state.error != null) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    modifier = Modifier.fillMaxWidth().padding(12.dp)
+                ) {
+                    Text(
+                        state.error!!,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+            }
+
+            if (state.responses.isEmpty() && !state.isLoading && state.error == null) {
+                Text(
+                    "No responses yet for this form.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+
             LazyColumn {
                 items(state.responses, key = { it.id }) { response ->
                     ResponseCard(

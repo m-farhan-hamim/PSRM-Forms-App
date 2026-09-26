@@ -53,7 +53,16 @@ class ResponsesRepository(
     suspend fun sendReply(responseId: Long, message: String, notifyEmail: Boolean): Result<PsrmReply> =
         runCatching {
             val response = api.sendReply(responseId, NewReplyRequest(message, notifyEmail))
-            if (!response.isSuccessful) error("Reply failed to send (HTTP ${response.code()})")
+            if (!response.isSuccessful) {
+                error(
+                    if (response.code() == 403) {
+                        "Replying requires being this report's assigned Support Agent, or an admin " +
+                            "— check the ticket's assignment in the WordPress admin."
+                    } else {
+                        "Reply failed to send (HTTP ${response.code()})"
+                    }
+                )
+            }
             response.body()!!.toDomain()
         }
 

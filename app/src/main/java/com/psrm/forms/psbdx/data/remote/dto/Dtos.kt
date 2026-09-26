@@ -37,12 +37,18 @@ data class FieldDto(
     val label: String,
     val required: Boolean,
     val handle: String?,
-    val order: Int
+    val order: Int,
+    val choices: List<String>? = null
 )
 
 @JsonClass(generateAdapter = true)
 data class FormsFieldsPayload(
     val fields: List<FieldDto>
+)
+
+@JsonClass(generateAdapter = true)
+data class NewFormRequest(
+    val title: String
 )
 
 @JsonClass(generateAdapter = true)

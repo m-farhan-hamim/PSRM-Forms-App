@@ -52,7 +52,6 @@ fun PsrmNavHost(app: PsrmApplication) {
                 viewModel = vm,
                 onOpenBuilder = { formId -> navController.navigate(Routes.builder(formId)) },
                 onOpenResponses = { formId -> navController.navigate(Routes.responses(formId)) },
-                onCreateForm = { /* TODO: create-form flow once the REST controller supports POST /forms with a blank schema */ },
                 onLogout = {
                     app.authRepository.logout()
                     navController.navigate(Routes.LOGIN) {

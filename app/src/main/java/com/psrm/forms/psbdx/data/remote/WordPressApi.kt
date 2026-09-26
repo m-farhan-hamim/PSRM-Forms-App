@@ -2,6 +2,7 @@ package com.psrm.forms.psbdx.data.remote
 
 import com.psrm.forms.psbdx.data.remote.dto.FormDto
 import com.psrm.forms.psbdx.data.remote.dto.FormsFieldsPayload
+import com.psrm.forms.psbdx.data.remote.dto.NewFormRequest
 import com.psrm.forms.psbdx.data.remote.dto.NewReplyRequest
 import com.psrm.forms.psbdx.data.remote.dto.ReplyDto
 import com.psrm.forms.psbdx.data.remote.dto.ResponseDto
@@ -17,14 +18,11 @@ import retrofit2.http.PUT
 import retrofit2.http.Path
 
 /**
- * NOTE ON SCOPE: the `psbdx-srm/v1` routes below are NOT part of the
- * current plugin (which drives its admin UI over admin-ajax.php, not a
- * REST namespace). They're the contract this app is written against —
- * a small `WP_REST_Controller` addition to the plugin (forms CRUD,
- * responses list/detail, reply-send) is the natural Task-1-adjacent
- * follow-up to make this app functional against a real site. Until
- * that controller exists, every call below will 404. `wp/v2/users/me`
- * is real WP core and works today.
+ * `psbdx-srm/v1` is real as of plugin version 2.0.0
+ * (`class-psbdx-srm-rest-controller.php`) — forms CRUD, responses, and
+ * replies all work against a live site running that version or later.
+ * `wp/v2/users/me` (login + header) is real WP core independent of the
+ * plugin's own version.
  */
 interface WordPressApi {
 
@@ -60,7 +58,7 @@ interface WordPressApi {
     suspend fun getForm(@Path("id") id: Long): Response<FormDto>
 
     @POST("wp-json/psbdx-srm/v1/forms")
-    suspend fun createForm(@Body form: FormDto): Response<FormDto>
+    suspend fun createForm(@Body body: NewFormRequest): Response<FormDto>
 
     @PUT("wp-json/psbdx-srm/v1/forms/{id}/fields")
     suspend fun updateFormFields(
