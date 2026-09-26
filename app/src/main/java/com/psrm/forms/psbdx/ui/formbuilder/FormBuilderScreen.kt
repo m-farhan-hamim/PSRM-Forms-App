@@ -1,23 +1,26 @@
 package com.psrm.forms.psbdx.ui.formbuilder
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenu
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -29,7 +32,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -208,21 +210,33 @@ private fun FieldEditorDialog(
         title = { Text(if (existing == null) "Add field" else "Edit field") },
         text = {
             Column {
-                ExposedDropdownMenuBox(
-                    expanded = typeMenuExpanded,
-                    onExpandedChange = { typeMenuExpanded = it }
-                ) {
+                // Deliberately a plain Box + DropdownMenu here rather than
+                // ExposedDropdownMenuBox/ExposedDropdownMenu/menuAnchor() —
+                // those are version-sensitive (not resolvable against every
+                // Material3 version this project might pin) where plain
+                // DropdownMenu has been stable since Compose 1.0. A
+                // click-through Box over a read-only field is the classic
+                // pattern for this from before Exposed* existed.
+                Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
                         value = selectedType.displayName,
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Field type") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeMenuExpanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                        trailingIcon = {
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                        },
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    ExposedDropdownMenu(
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { typeMenuExpanded = true }
+                    )
+                    DropdownMenu(
                         expanded = typeMenuExpanded,
-                        onDismissRequest = { typeMenuExpanded = false }
+                        onDismissRequest = { typeMenuExpanded = false },
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         PsrmFieldType.entries.forEach { type ->
                             DropdownMenuItem(
