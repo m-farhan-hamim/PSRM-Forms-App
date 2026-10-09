@@ -89,33 +89,17 @@ class FormsRepository(
         type: String,
         label: String,
         required: Boolean,
-        choices: List<String>? = null,
-        conditionalEnabled: Boolean = false,
-        conditionalMode: String? = null,
-        conditionalRules: Map<String, String>? = null,
-        nextAction: String? = null
+        choices: List<String>? = null
     ): Result<PsrmForm> = runCatching {
         val fields = currentFields(formId)
         val newField = PsrmField(
             id = newFieldId(),
             type = type,
-            // Title/Section are read-only structural fields — never
-            // required, same force-clear sanitize_fields_schema() applies
-            // server-side (kept here too so a locally-cached copy, shown
-            // before the next refresh(), already reflects it).
             label = label,
-            required = if (type == "title" || type == "section") false else required,
+            required = required,
             handle = deriveHandle(label),
             order = fields.size,
-            choices = choices,
-            conditionalEnabled = conditionalEnabled,
-            conditionalMode = conditionalMode,
-            conditionalRules = conditionalRules,
-            nextAction = if (type == "section") (nextAction ?: "next") else null,
-            // A newly-added field is never the server-protected starting
-            // section or rating-form Review field — those only ever exist
-            // because the server restored them.
-            protectedField = false
+            choices = choices
         )
 
         saveFields(formId, fields + newField)
@@ -133,52 +117,17 @@ class FormsRepository(
         type: String,
         label: String,
         required: Boolean,
-        choices: List<String>? = null,
-        conditionalEnabled: Boolean = false,
-        conditionalMode: String? = null,
-        conditionalRules: Map<String, String>? = null,
-        nextAction: String? = null
+        choices: List<String>? = null
     ): Result<PsrmForm> = runCatching {
         val fields = currentFields(formId)
         val index = fields.indexOfFirst { it.id == fieldId }
         if (index == -1) error("Field not found")
 
         val updated = fields.toMutableList().apply {
-            this[index] = this[index].copy(
-                type = type,
-                label = label,
-                // Same structural force-clear as addField() above.
-                required = if (type == "title" || type == "section") false else required,
-                choices = choices,
-                conditionalEnabled = conditionalEnabled,
-                conditionalMode = conditionalMode,
-                conditionalRules = conditionalRules,
-                nextAction = if (type == "section") (nextAction ?: "next") else null
-                // protectedField is deliberately left untouched — it's a
-                // server-assigned fact about the field's position/role,
-                // never something the edit dialog sets.
-            )
+            this[index] = this[index].copy(type = type, label = label, required = required, choices = choices)
         }
 
         saveFields(formId, updated)
-    }
-
-    /**
-     * Removes a field from a form's schema — the mobile counterpart to the
-     * PC editor's delete button. A protected field (the form's leading
-     * Section Break, or the rating form's Review field) is silently kept
-     * even if its ID is passed in: sanitize_fields_schema() would restore
-     * it on the very next save anyway, so filtering it out here just saves
-     * a round trip that would have no visible effect.
-     */
-    suspend fun deleteField(formId: Long, fieldId: String): Result<PsrmForm> = runCatching {
-        val fields = currentFields(formId)
-        val target = fields.firstOrNull { it.id == fieldId } ?: error("Field not found")
-        if (target.protectedField) {
-            return@runCatching formDao.getById(formId)!!.toDomain()
-        }
-
-        saveFields(formId, fields.filterNot { it.id == fieldId })
     }
 
     /** Reads a form's current fields, pulling from the server first if it
@@ -237,33 +186,6 @@ class FormsRepository(
         modifiedAt = modifiedAt
     )
 
-    private fun FieldDto.toDomain(): PsrmField = PsrmField(
-        id = id,
-        type = type,
-        label = label,
-        required = required,
-        handle = handle,
-        order = order,
-        choices = choices,
-        conditionalEnabled = conditionalEnabled ?: false,
-        conditionalMode = conditionalMode,
-        conditionalRules = conditionalRules,
-        nextAction = nextAction,
-        protectedField = protected ?: false
-    )
-
-    private fun PsrmField.toDto(): FieldDto = FieldDto(
-        id = id,
-        type = type,
-        label = label,
-        required = required,
-        handle = handle,
-        order = order,
-        choices = choices,
-        conditionalEnabled = conditionalEnabled,
-        conditionalMode = conditionalMode,
-        conditionalRules = conditionalRules,
-        nextAction = nextAction,
-        protected = protectedField
-    )
+    private fun FieldDto.toDomain(): PsrmField = PsrmField(id, type, label, required, handle, order, choices)
+    private fun PsrmField.toDto(): FieldDto = FieldDto(id, type, label, required, handle, order, choices)
 }

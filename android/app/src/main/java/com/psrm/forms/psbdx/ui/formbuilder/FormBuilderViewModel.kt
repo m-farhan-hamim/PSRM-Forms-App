@@ -66,40 +66,12 @@ class FormBuilderViewModel(
         }
     }
 
-    /** Removes a field — a protected field (the form's leading Section
-     *  Break, or the rating form's Review field) is silently kept by the
-     *  repository even if its ID is passed here, same as a disabled delete
-     *  button would do in the PC editor. */
-    fun deleteField(fieldId: String) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isSaving = true, error = null)
-            val result = formsRepository.deleteField(formId, fieldId)
-            _uiState.value = _uiState.value.copy(
-                isSaving = false,
-                form = result.getOrNull() ?: _uiState.value.form,
-                error = result.exceptionOrNull()?.message
-            )
-        }
-    }
-
     /** The mobile builder's "+" action — appends a new field to the end of
      *  the form. */
-    fun addField(
-        type: String,
-        label: String,
-        required: Boolean,
-        choices: List<String>?,
-        conditionalEnabled: Boolean = false,
-        conditionalMode: String? = null,
-        conditionalRules: Map<String, String>? = null,
-        nextAction: String? = null
-    ) {
+    fun addField(type: String, label: String, required: Boolean, choices: List<String>?) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSaving = true, error = null)
-            val result = formsRepository.addField(
-                formId, type, label, required, choices,
-                conditionalEnabled, conditionalMode, conditionalRules, nextAction
-            )
+            val result = formsRepository.addField(formId, type, label, required, choices)
             _uiState.value = _uiState.value.copy(
                 isSaving = false,
                 form = result.getOrNull() ?: _uiState.value.form,
@@ -108,25 +80,11 @@ class FormBuilderViewModel(
         }
     }
 
-    /** Edits an existing field's type/label/required/choices/conditional
-     *  logic/next-action in place. */
-    fun updateField(
-        fieldId: String,
-        type: String,
-        label: String,
-        required: Boolean,
-        choices: List<String>?,
-        conditionalEnabled: Boolean = false,
-        conditionalMode: String? = null,
-        conditionalRules: Map<String, String>? = null,
-        nextAction: String? = null
-    ) {
+    /** Edits an existing field's type/label/required/choices in place. */
+    fun updateField(fieldId: String, type: String, label: String, required: Boolean, choices: List<String>?) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSaving = true, error = null)
-            val result = formsRepository.updateField(
-                formId, fieldId, type, label, required, choices,
-                conditionalEnabled, conditionalMode, conditionalRules, nextAction
-            )
+            val result = formsRepository.updateField(formId, fieldId, type, label, required, choices)
             _uiState.value = _uiState.value.copy(
                 isSaving = false,
                 form = result.getOrNull() ?: _uiState.value.form,

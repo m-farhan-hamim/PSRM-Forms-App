@@ -32,31 +32,13 @@ data class PsrmField(
     val required: Boolean,
     val handle: String?,
     val order: Int,
-    val choices: List<String>? = null,
-    // Select/Radio conditional logic — 'section' mode overrides which page
-    // Next goes to per answer, 'field' mode reveals another field on the
-    // same page. Mirrors the plugin's own sanitize_fields_schema() shape.
-    val conditionalEnabled: Boolean = false,
-    val conditionalMode: String? = null,       // "section" | "field"
-    val conditionalRules: Map<String, String>? = null,
-    // Section fields only: "next" | "submit" | another Section field's own
-    // id to jump straight to it.
-    val nextAction: String? = null,
-    // True for a field the server will silently restore if removed (the
-    // form's leading Section Break, or the rating form's Review field) —
-    // named protectedField, not protected, since the latter is a Kotlin
-    // visibility keyword.
-    val protectedField: Boolean = false
+    val choices: List<String>? = null
 ) {
-    /** Mirrors the PC editor's duplicateField(): new id, "(Copy)" label, re-derived handle.
-     *  A duplicate is never itself protected — only the server-designated
-     *  original (the form's one leading Section, or the rating form's one
-     *  Review field) ever is. */
+    /** Mirrors the PC editor's duplicateField(): new id, "(Copy)" label, re-derived handle. */
     fun duplicated(newId: String): PsrmField = copy(
         id = newId,
         label = "$label (Copy)",
-        handle = handle?.let { "${it}_${newId.takeLast(4)}" },
-        protectedField = false
+        handle = handle?.let { "${it}_${newId.takeLast(4)}" }
     )
 }
 
@@ -92,33 +74,22 @@ data class PsrmReply(
  * finish setting up, so they're left for the PC editor for now rather than
  * shipped half-working.
  */
-enum class PsrmFieldType(
-    val key: String,
-    val displayName: String,
-    val needsChoices: Boolean = false,
-    // Title/Section are read-only structural fields — they never collect a
-    // value, so "Required" is meaningless for them (sanitize_fields_schema()
-    // force-clears it server-side; the dialog shouldn't even offer it).
-    val isStructural: Boolean = false,
-    // Select/Radio only — whether this type can carry conditional logic
-    // (jump to a section, or reveal another field, based on the answer).
-    val supportsConditional: Boolean = false
-) {
+enum class PsrmFieldType(val key: String, val displayName: String, val needsChoices: Boolean = false) {
     NAME("name", "Name (First & Last)"),
     EMAIL("email", "Email"),
     MOBILE("mobile", "Mobile Number"),
     TEXT("text", "Text (Single Line)"),
     PARAGRAPH("paragraph", "Paragraph"),
     NUMBER("number", "Number"),
-    SELECT("select", "Drop-down / Select", needsChoices = true, supportsConditional = true),
-    RADIO("radio", "Radio Buttons", needsChoices = true, supportsConditional = true),
+    SELECT("select", "Drop-down / Select", needsChoices = true),
+    RADIO("radio", "Radio Buttons", needsChoices = true),
     CHECKBOX("checkbox", "Checkboxes", needsChoices = true),
     DATE("date", "Date"),
     TIME("time", "Time"),
     URL("url", "Website / URL"),
     CONSENT("consent", "Agreement / Consent"),
-    TITLE("title", "Title / Heading", isStructural = true),
-    SECTION("section", "Section Break", isStructural = true),
+    TITLE("title", "Title / Heading"),
+    SECTION("section", "Section Break"),
     ATTACHMENT("attachment", "Attachment"),
     REVIEW("review", "Review (Star Rating)");
 

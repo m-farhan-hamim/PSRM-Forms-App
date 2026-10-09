@@ -38,20 +38,7 @@ data class FieldDto(
     val required: Boolean,
     val handle: String?,
     val order: Int,
-    val choices: List<String>? = null,
-    // Select/Radio conditional logic — 'section' mode overrides which page
-    // Next goes to per answer, 'field' mode reveals another field on the
-    // same page. Mirrors sanitize_fields_schema()'s exact shape server-side.
-    @Json(name = "conditional_enabled") val conditionalEnabled: Boolean? = null,
-    @Json(name = "conditional_mode") val conditionalMode: String? = null,
-    @Json(name = "conditional_rules") val conditionalRules: Map<String, String>? = null,
-    // Section fields only: 'next' | 'submit' | another Section field's own
-    // id to jump straight to it.
-    @Json(name = "next_action") val nextAction: String? = null,
-    // Set by the server for a field sanitize_fields_schema() will silently
-    // restore if removed (the form's leading Section Break, or the rating
-    // form's Review field) — the client should hide/disable delete for it.
-    val protected: Boolean? = null
+    val choices: List<String>? = null
 )
 
 @JsonClass(generateAdapter = true)

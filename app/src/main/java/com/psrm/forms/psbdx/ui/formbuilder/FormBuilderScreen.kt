@@ -10,10 +10,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -21,6 +25,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -34,6 +39,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -131,7 +137,8 @@ fun FormBuilderScreen(
                                     isAddingNew = false
                                     showDialog = true
                                 },
-                                onDuplicate = { viewModel.duplicateField(field.id) }
+                                onDuplicate = { viewModel.duplicateField(field.id) },
+                                onDelete = { viewModel.deleteField(field.id) }
                             )
                         }
                     }
@@ -140,15 +147,18 @@ fun FormBuilderScreen(
         }
     }
 
-    if (showDialog) {
+    if (showDialog && form != null) {
         FieldEditorDialog(
             existing = dialogField,
+            allFields = form.fields,
             onDismiss = { showDialog = false },
-            onSave = { type, label, required, choices ->
+            onSave = { type, label, required, choices, conditionalEnabled, conditionalMode, conditionalRules, nextAction ->
                 if (isAddingNew) {
-                    viewModel.addField(type, label, required, choices)
+                    viewModel.addField(type, label, required, choices, conditionalEnabled, conditionalMode, conditionalRules, nextAction)
                 } else {
-                    dialogField?.let { viewModel.updateField(it.id, type, label, required, choices) }
+                    dialogField?.let {
+                        viewModel.updateField(it.id, type, label, required, choices, conditionalEnabled, conditionalMode, conditionalRules, nextAction)
+                    }
                 }
                 showDialog = false
             }
@@ -157,7 +167,12 @@ fun FormBuilderScreen(
 }
 
 @Composable
-private fun FieldCard(field: PsrmField, onClick: () -> Unit, onDuplicate: () -> Unit) {
+private fun FieldCard(
+    field: PsrmField,
+    onClick: () -> Unit,
+    onDuplicate: () -> Unit,
+    onDelete: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
         onClick = onClick
@@ -166,6 +181,13 @@ private fun FieldCard(field: PsrmField, onClick: () -> Unit, onDuplicate: () -> 
             modifier = Modifier.fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (field.protectedField) {
+                Icon(
+                    Icons.Default.Lock,
+                    contentDescription = "Protected field — can't be removed",
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+            }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     PsrmFieldType.fromKey(field.type)?.displayName ?: field.type,
@@ -179,6 +201,73 @@ private fun FieldCard(field: PsrmField, onClick: () -> Unit, onDuplicate: () -> 
             IconButton(onClick = onDuplicate) {
                 Icon(Icons.Default.ContentCopy, contentDescription = "Duplicate field")
             }
+            // A protected field (the form's leading Section Break, or the
+            // rating form's Review field) is restored by the server on the
+            // very next save even if deleted, so there's nothing useful a
+            // delete button here could do — same reasoning as the PC
+            // editor's locked, disabled delete control for these fields.
+            if (!field.protectedField) {
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, contentDescription = "Remove field")
+                }
+            }
+        }
+    }
+}
+
+/**
+ * A read-only text field that opens a [DropdownMenu] when tapped — the
+ * same click-through-overlay pattern used everywhere a dropdown is needed
+ * in this dialog, kept as one helper instead of three near-duplicates.
+ * Deliberately a plain Box + DropdownMenu rather than
+ * ExposedDropdownMenuBox/ExposedDropdownMenu/menuAnchor() — those are
+ * version-sensitive (not resolvable against every Material3 version this
+ * project might pin) where plain DropdownMenu has been stable since
+ * Compose 1.0.
+ */
+@Composable
+private fun DropdownField(
+    label: String,
+    selectedText: String,
+    options: List<String>,
+    enabled: Boolean = true,
+    modifierTop: Int = 12,
+    onSelected: (Int) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = Modifier.fillMaxWidth().padding(top = modifierTop.dp)) {
+        OutlinedTextField(
+            value = selectedText,
+            onValueChange = {},
+            readOnly = true,
+            enabled = enabled,
+            label = { Text(label) },
+            trailingIcon = {
+                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+            },
+            modifier = Modifier.fillMaxWidth()
+        )
+        if (enabled) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clickable { expanded = true }
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            options.forEachIndexed { index, opt ->
+                DropdownMenuItem(
+                    text = { Text(opt) },
+                    onClick = {
+                        expanded = false
+                        onSelected(index)
+                    }
+                )
+            }
         }
     }
 }
@@ -188,13 +277,28 @@ private fun FieldCard(field: PsrmField, onClick: () -> Unit, onDuplicate: () -> 
  * field" (blank form, defaults to Text), non-null pre-fills from that
  * field and keeps its type/handle semantics (handle itself isn't edited
  * here at all — see FormsRepository.updateField()'s doc on why).
+ *
+ * [allFields] is the rest of the form's current schema — needed to build
+ * the "Continue to section X" / "jump to section" / "reveal field" target
+ * lists, same way the PC editor's getConditionalSectionOptions() and
+ * getSectionNextActionOptions() read the live canvas.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FieldEditorDialog(
     existing: PsrmField?,
+    allFields: List<PsrmField>,
     onDismiss: () -> Unit,
-    onSave: (type: String, label: String, required: Boolean, choices: List<String>?) -> Unit
+    onSave: (
+        type: String,
+        label: String,
+        required: Boolean,
+        choices: List<String>?,
+        conditionalEnabled: Boolean,
+        conditionalMode: String?,
+        conditionalRules: Map<String, String>?,
+        nextAction: String?
+    ) -> Unit
 ) {
     var selectedType by remember {
         mutableStateOf(existing?.let { PsrmFieldType.fromKey(it.type) } ?: PsrmFieldType.TEXT)
@@ -204,50 +308,40 @@ private fun FieldEditorDialog(
     var choicesText by remember { mutableStateOf(existing?.choices?.joinToString(", ") ?: "") }
     var typeMenuExpanded by remember { mutableStateOf(false) }
 
+    // Conditional logic (Select/Radio only).
+    var conditionalEnabled by remember { mutableStateOf(existing?.conditionalEnabled ?: false) }
+    var conditionalMode by remember { mutableStateOf(existing?.conditionalMode ?: "section") }
+    val conditionalRules = remember {
+        mutableStateMapOf<String, String>().apply { existing?.conditionalRules?.let { putAll(it) } }
+    }
+
+    // Section's own "After this section" fall-through.
+    var nextAction by remember { mutableStateOf(existing?.nextAction ?: "next") }
+
+    val isProtected = existing?.protectedField ?: false
+    val choiceList = choicesText.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (existing == null) "Add field" else "Edit field") },
         text = {
-            Column {
-                // Deliberately a plain Box + DropdownMenu here rather than
-                // ExposedDropdownMenuBox/ExposedDropdownMenu/menuAnchor() —
-                // those are version-sensitive (not resolvable against every
-                // Material3 version this project might pin) where plain
-                // DropdownMenu has been stable since Compose 1.0. A
-                // click-through Box over a read-only field is the classic
-                // pattern for this from before Exposed* existed.
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedTextField(
-                        value = selectedType.displayName,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Field type") },
-                        trailingIcon = {
-                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                        },
-                        modifier = Modifier.fillMaxWidth()
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                if (isProtected) {
+                    Text(
+                        "This field is required by the form and can't be removed or changed to a different type.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary
                     )
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .clickable { typeMenuExpanded = true }
-                    )
-                    DropdownMenu(
-                        expanded = typeMenuExpanded,
-                        onDismissRequest = { typeMenuExpanded = false },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        PsrmFieldType.entries.forEach { type ->
-                            DropdownMenuItem(
-                                text = { Text(type.displayName) },
-                                onClick = {
-                                    selectedType = type
-                                    typeMenuExpanded = false
-                                }
-                            )
-                        }
-                    }
                 }
+
+                DropdownField(
+                    label = "Field type",
+                    selectedText = selectedType.displayName,
+                    options = PsrmFieldType.entries.map { it.displayName },
+                    enabled = !isProtected,
+                    modifierTop = 0,
+                    onSelected = { index -> selectedType = PsrmFieldType.entries[index] }
+                )
 
                 OutlinedTextField(
                     value = label,
@@ -267,26 +361,127 @@ private fun FieldEditorDialog(
                     )
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Required", modifier = Modifier.weight(1f))
-                    Switch(checked = required, onCheckedChange = { required = it })
+                // Title/Section are read-only structural fields — they never
+                // collect a value, so "Required" is meaningless for them
+                // (sanitize_fields_schema() force-clears it server-side too).
+                if (!selectedType.isStructural) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Required", modifier = Modifier.weight(1f))
+                        Switch(checked = required, onCheckedChange = { required = it })
+                    }
+                }
+
+                // Conditional logic — Select/Radio only, same two independent
+                // modes as the PC editor: 'section' overrides which page Next
+                // goes to per answer, 'field' reveals another field on the
+                // same page when a specific answer is chosen.
+                if (selectedType.supportsConditional) {
+                    HorizontalDivider(modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Conditional logic", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                        Switch(checked = conditionalEnabled, onCheckedChange = { conditionalEnabled = it })
+                    }
+
+                    if (conditionalEnabled) {
+                        DropdownField(
+                            label = "Based on the answer…",
+                            selectedText = if (conditionalMode == "field") "Reveal another field" else "Jump to a section",
+                            options = listOf("Jump to a section", "Reveal another field"),
+                            onSelected = { index -> conditionalMode = if (index == 1) "field" else "section" }
+                        )
+
+                        if (choiceList.isEmpty()) {
+                            Text(
+                                "Add choices above first.",
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                        }
+
+                        choiceList.forEach { choice ->
+                            val targetOptions: List<Pair<String, String>> = if (conditionalMode == "field") {
+                                listOf("" to "— Don’t show a field —") +
+                                    allFields.filter { f ->
+                                        f.id != existing?.id &&
+                                            PsrmFieldType.fromKey(f.type)?.isStructural != true &&
+                                            f.type != "captcha"
+                                    }.map { f -> f.id to f.label.ifBlank { f.type } }
+                            } else {
+                                listOf("" to "— Continue as normal —") +
+                                    allFields.filter { f -> f.type == "section" && f.id != existing?.id }
+                                        .map { f -> f.id to "Section: " + f.label.ifBlank { "Section" } } +
+                                    listOf("__submit__" to "Submit the form")
+                            }
+                            val currentTarget = conditionalRules[choice] ?: ""
+                            val currentLabel = targetOptions.firstOrNull { it.first == currentTarget }?.second
+                                ?: targetOptions.first().second
+
+                            DropdownField(
+                                label = choice,
+                                selectedText = currentLabel,
+                                options = targetOptions.map { it.second },
+                                onSelected = { index ->
+                                    val value = targetOptions[index].first
+                                    if (value.isEmpty()) {
+                                        conditionalRules.remove(choice)
+                                    } else {
+                                        conditionalRules[choice] = value
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Section's own fall-through — what happens when the visitor
+                // reaches the end of the page this section starts. Same idea
+                // as the PC editor's "After this section" setting, with the
+                // same three options: continue in order, submit early, or
+                // jump straight to a specific other section.
+                if (selectedType == PsrmFieldType.SECTION) {
+                    HorizontalDivider(modifier = Modifier.padding(top = 16.dp, bottom = 8.dp))
+                    val sectionTargets: List<Pair<String, String>> = listOf(
+                        "next" to "Continue to next section",
+                        "submit" to "Submit the form"
+                    ) + allFields.filter { f -> f.type == "section" && f.id != existing?.id }
+                        .map { f -> f.id to "Continue to section: " + f.label.ifBlank { "Section" } }
+
+                    val currentNextLabel = sectionTargets.firstOrNull { it.first == nextAction }?.second
+                        ?: sectionTargets.first().second
+
+                    DropdownField(
+                        label = "After this section",
+                        selectedText = currentNextLabel,
+                        options = sectionTargets.map { it.second },
+                        modifierTop = 0,
+                        onSelected = { index -> nextAction = sectionTargets[index].first }
+                    )
                 }
             }
         },
         confirmButton = {
             TextButton(
                 onClick = {
-                    val choices = if (selectedType.needsChoices) {
-                        choicesText.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                    } else {
-                        null
-                    }
-                    onSave(selectedType.key, label.trim(), required, choices)
+                    val choices = if (selectedType.needsChoices) choiceList else null
+                    val finalConditionalEnabled = selectedType.supportsConditional && conditionalEnabled
+                    onSave(
+                        selectedType.key,
+                        label.trim(),
+                        required,
+                        choices,
+                        finalConditionalEnabled,
+                        if (finalConditionalEnabled) conditionalMode else null,
+                        if (finalConditionalEnabled) conditionalRules.toMap() else null,
+                        if (selectedType == PsrmFieldType.SECTION) nextAction else null
+                    )
                 },
-                enabled = label.isNotBlank() && (!selectedType.needsChoices || choicesText.isNotBlank())
+                enabled = label.isNotBlank() && (!selectedType.needsChoices || choiceList.isNotEmpty())
             ) {
                 Text(if (existing == null) "Add" else "Save")
             }
